@@ -108,3 +108,4 @@ def main(*args, **kwargs):
         pass
     finally:
         ping_recorder.stop()
+    ping_recorder.print_stats()

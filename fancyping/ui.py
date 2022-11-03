@@ -10,22 +10,6 @@ COLOR_DEFAULT = 5
 COLOR_RED = 6
 COLOR_GREEN = 7
 
-STATS_INTERVALS = [
-    (10, "10s"),
-    (30, "30s"),
-    (60, "60s"),
-    (60 * 2, "2m"),
-    (60 * 5, "5m"),
-    (60 * 10, "10m"),
-    (60 * 15, "15m"),
-    (60 * 30, "30m"),
-    (60 * 60, "1h"),
-    (60 * 60 * 3, "3h"),
-    (60 * 60 * 6, "6h"),
-    (60 * 60 * 12, "12h"),
-    (60 * 60 * 24, "24h"),
-]
-
 
 def init_colors():
     curses.use_default_colors()
@@ -125,7 +109,7 @@ def main(stdscr, ping_recorder, options):
             elif key in ("r", "R"):
                 ping_recorder.reset()
                 previous_state = None
-            elif key == "+" and stats_interval_index < len(STATS_INTERVALS) - 1:
+            elif key == "+" and stats_interval_index < len(ping_recorder.STATS_INTERVALS) - 1:
                 stats_interval_index += 1
                 previous_state = None
             elif key == "-" and stats_interval_index > 0:
@@ -141,7 +125,8 @@ def main(stdscr, ping_recorder, options):
             else:
                 rtt_text = ping_recorder.error or ""
                 alive = False
-            stats_interval, stats_interval_desc = STATS_INTERVALS[stats_interval_index]
+            stats_interval, stats_interval_desc = \
+                ping_recorder.STATS_INTERVALS[stats_interval_index]
             lines = [
                 ping_recorder.target,
                 "",
