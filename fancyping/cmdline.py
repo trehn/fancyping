@@ -43,6 +43,20 @@ def build_parser():
         help="disable animation while TARGET is down",
     )
     parser.add_argument(
+        "-f",
+        "--color-up",
+        action='store_true',
+        dest='color_up',
+        help="fullscreen color while TARGET is up",
+    )
+    parser.add_argument(
+        "-F",
+        "--color-down",
+        action='store_true',
+        dest='color_down',
+        help="fullscreen color while TARGET is down",
+    )
+    parser.add_argument(
         "-i",
         "--interval",
         default=1.0,

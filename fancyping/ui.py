@@ -61,14 +61,16 @@ def draw_text(win, y, x, lines, max_line_length, alive):
         win.addstr(y + 2 + i, x + 4, line.center(max_line_length), curses.color_pair(text_color))
 
 
-def draw_center_box(win, lines, max_line_length, alive):
-    box_height = len(lines) + 4
-    box_width = max_line_length + 8
-    y = int((curses.LINES - box_height) / 2) - 1
-    x = int((curses.COLS - box_width) / 2) - 1
-    for tick_values in ticks(y, x, box_height, box_width):
-        win.addstr(*tick_values, curses.color_pair(COLOR_FULL_BLACK))
-    return y, x, box_height, box_width
+def draw_full_color(win, y, x, box_height, box_width, alive):
+    color = COLOR_FULL_GREEN if alive else COLOR_FULL_RED
+    full_height, full_width = win.getmaxyx()
+    for i in range(full_height - 1):
+        for j in range(full_width - 1):
+            if not (
+                i >= y - 1 and i <= y + box_height and
+                j >= x - 2 and j <= x + box_width + 1
+            ):
+                win.addstr(i, j, " ", curses.color_pair(color))
 
 
 def tick_center_box(win, y, x, box_height, box_width, alive, anim):
@@ -191,6 +193,8 @@ def main(stdscr, ping_recorder, options):
             y = int((max_y - box_height) / 2) - 1
             x = int((max_x - box_width) / 2) - 1
             anim = (alive and options.anim_up) or (not alive and options.anim_down)
+            if (alive and options.color_up) or (not alive and options.color_down):
+                draw_full_color(stdscr, y, x, box_height, box_width, alive)
             ticker = tick_center_box(stdscr, y, x, box_height, box_width, alive, anim)
 
         if redraw_text:
