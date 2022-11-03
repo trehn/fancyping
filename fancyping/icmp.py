@@ -10,20 +10,21 @@ class Scheduler(Thread):
         self.recorder = recorder
 
     def run(self):
-        while not self.recorder._stopped.wait(self.recorder.interval):
+        while not self.recorder.stopped.wait(self.recorder.interval):
             self.recorder._schedule_ping()
 
 
 class PingRecorder:
-    def __init__(self, target, interval=1.0, timeout=2.0, history=60 * 60 * 24):
+    def __init__(self, target, count=0, interval=1.0, timeout=2.0, history=60 * 60 * 24):
         self.target = target
+        self.count = count
         self.interval = interval
         self.timeout = timeout
         self.history = history
 
         self.updated = Event()
         self._lock = Lock()
-        self._stopped = Event()
+        self.stopped = Event()
 
         self.reset()
 
@@ -43,15 +44,15 @@ class PingRecorder:
         self.updated.set()
 
     def stop(self):
-        self._stopped.set()
+        self.stopped.set()
 
     def start(self):
-        self._stopped.clear()
+        self.stopped.clear()
         Thread(target=self._schedule_pings).start()
 
     def _schedule_pings(self):
         self._schedule_ping()
-        while not self._stopped.wait(self.interval):
+        while not self.stopped.wait(self.interval):
             self._schedule_ping()
 
     def _schedule_ping(self):
@@ -76,6 +77,8 @@ class PingRecorder:
                     self.last_down = datetime.utcnow()
                 if len(self._results) > self.history:
                     self._results.pop()
+                if self.count and len(self._results) > self.count:
+                    self.stopped.set()
         finally:
             self.updated.set()
 

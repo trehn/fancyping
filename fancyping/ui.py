@@ -114,7 +114,7 @@ def main(stdscr, ping_recorder, options):
     previous_state = None
     stats_interval_index = 2
 
-    while True:
+    while not ping_recorder.stopped.is_set():
         try:
             key = stdscr.getkey()
         except curses.error:

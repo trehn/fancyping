@@ -43,6 +43,14 @@ def build_parser():
         help="disable animation while TARGET is down",
     )
     parser.add_argument(
+        "-c",
+        "--count",
+        default=0,
+        dest='count',
+        help="quit after this many pings",
+        type=int,
+    )
+    parser.add_argument(
         "-f",
         "--color-up",
         action='store_true',
@@ -89,6 +97,7 @@ def main(*args, **kwargs):
 
     ping_recorder = PingRecorder(
         pargs.target,
+        count=pargs.count,
         interval=pargs.interval,
         timeout=pargs.timeout,
     )
