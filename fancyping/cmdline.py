@@ -29,6 +29,20 @@ def build_parser():
         type=str,
     )
     parser.add_argument(
+        "-a",
+        "--no-up-anim",
+        action='store_false',
+        dest='anim_up',
+        help="disable animation while TARGET is up",
+    )
+    parser.add_argument(
+        "-A",
+        "--no-down-anim",
+        action='store_false',
+        dest='anim_down',
+        help="disable animation while TARGET is down",
+    )
+    parser.add_argument(
         "-i",
         "--interval",
         default=1.0,
@@ -43,20 +57,6 @@ def build_parser():
         dest='timeout',
         help="number of seconds before a ping is considered lost (defaults to 2)",
         type=float,
-    )
-    parser.add_argument(
-        "-D",
-        "--no-down-anim",
-        action='store_false',
-        dest='anim_down',
-        help="disable animation while TARGET is down",
-    )
-    parser.add_argument(
-        "-U",
-        "--no-up-anim",
-        action='store_false',
-        dest='anim_up',
-        help="disable animation while TARGET is up",
     )
     parser.add_argument(
         "--version",
