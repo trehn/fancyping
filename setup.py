@@ -7,6 +7,7 @@ setup(
     description="Colorful ICMP pings for your terminal",
     author="Torsten Rehn",
     author_email="torsten@rehn.email",
+    url="https://github.com/trehn/fancyping",
     license="GPLv3",
     packages=find_packages(),
     entry_points={
