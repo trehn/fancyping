@@ -74,6 +74,20 @@ def build_parser():
         type=float,
     )
     parser.add_argument(
+        "-q",
+        "--quit-up",
+        action='store_true',
+        dest='quit_up',
+        help="quit when TARGET is up",
+    )
+    parser.add_argument(
+        "-Q",
+        "--quit-down",
+        action='store_true',
+        dest='quit_down',
+        help="quit when TARGET is down",
+    )
+    parser.add_argument(
         "-t",
         "--timeout",
         default=2.0,

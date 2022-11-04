@@ -124,9 +124,13 @@ def main(stdscr, ping_recorder, options):
             if last_rtt:
                 rtt_text = f"RTT {last_rtt:9.2f}ms"
                 alive = True
+                if options.quit_up:
+                    break
             else:
                 rtt_text = ping_recorder.error or ""
                 alive = False
+                if options.quit_down and previous_state is not None:
+                    break
             stats_interval, stats_interval_desc = \
                 ping_recorder.STATS_INTERVALS[stats_interval_index]
             lines = [
