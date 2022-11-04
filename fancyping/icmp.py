@@ -53,6 +53,7 @@ class PingRecorder:
 
     def reset(self):
         with self._lock:
+            self._datetimes = []
             self._results = []
             self.error = None
             self.last_alive = None
@@ -63,6 +64,7 @@ class PingRecorder:
         self.stopped.set()
 
     def start(self):
+        self.time_started = datetime.utcnow()
         self.stopped.clear()
         Thread(target=self._schedule_pings).start()
 
@@ -82,16 +84,20 @@ class PingRecorder:
                 self.error = str(exc)
                 self.last_down = datetime.utcnow()
         else:
+            now = datetime.utcnow()
             with self._lock:
                 if result.is_alive:
+                    self._datetimes.insert(0, now)
                     self._results.insert(0, result.rtts[0])
                     self.error = None
-                    self.last_alive = datetime.utcnow()
+                    self.last_alive = now
                 else:
+                    self._datetimes.insert(0, now)
                     self._results.insert(0, None)
                     self.error = "CONTACT LOST"
-                    self.last_down = datetime.utcnow()
+                    self.last_down = now
                 if len(self._results) > self.history:
+                    self._datetimes.pop()
                     self._results.pop()
                 if self.count and len(self._results) > self.count:
                     self.stopped.set()
@@ -113,20 +119,20 @@ class PingRecorder:
             return None
         return mean(values), median(values), min(values), max(values)
 
-    def print_stats(self):
-        print(
+    def report_stats(self):
+        lines = [
             "TIME  " +
             "AVG".rjust(9) +
             "MED".rjust(9) +
             "MIN".rjust(9) +
             "MAX".rjust(9) +
             "P/L".rjust(7)
-        )
+        ]
         for timeframe, label in self.STATS_INTERVALS:
             pl = self.packet_loss(timeframe)
             stats = self.rtt_stats(timeframe)
             if stats:
-                print(
+                lines.append(
                     f"{label.rjust(4)}  "
                     f"{stats[0]:9.2f}"
                     f"{stats[1]:9.2f}"
@@ -135,7 +141,7 @@ class PingRecorder:
                     f"{pl * 100:6.1f}%"
                 )
             else:
-                print(
+                lines.append(
                     f"{label.rjust(4)}  "
                     f"{' ':<9}"
                     f"{' ':<9}"
@@ -145,3 +151,22 @@ class PingRecorder:
                 )
             if len(self._results) < int(timeframe / self.interval):
                 break
+        return "\n".join(lines)
+
+    def report_write_full(self):
+        Thread(target=self._report_write_full).start()
+
+    def _report_write_full(self):
+        reptime = datetime.utcnow()
+        filename = f"fancyping_report_{self.target}_{reptime.strftime('%Y%m%dT%H%M%SZ')}.txt"
+        with open(filename, 'w') as f:
+            f.write(f"TARGET: {self.target}\n")
+            f.write(f"UNTIL:  {reptime.strftime('%Y-%m-%dT%H:%M:%SZ')}\n\n")
+            f.write(f"FROM:   {self.time_started.strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+            f.write(self.report_stats() + "\n\n")
+            for rtt, time in zip(self._results.copy(), self._datetimes.copy()):
+                if rtt is None:
+                    rtt_text = "TIMEOUT"
+                else:
+                    rtt_text = f"{rtt:9.2f}ms"
+                f.write(f"{time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')}  {rtt_text}\n")

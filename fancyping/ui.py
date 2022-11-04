@@ -107,6 +107,8 @@ def main(stdscr, ping_recorder, options):
             if key in ("q", "Q"):
                 break
             elif key in ("r", "R"):
+                ping_recorder.report_write_full()
+            elif key in ("x", "X"):
                 ping_recorder.reset()
                 previous_state = None
             elif key == "+" and stats_interval_index < len(ping_recorder.STATS_INTERVALS) - 1:

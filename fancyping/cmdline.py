@@ -12,7 +12,8 @@ HOTKEYS
 
  +/-  change stats interval
   Q   quit
-  R   reset stats
+  R   write report to current directory (timestamps at response)
+  X   reset stats
 """
 
 
@@ -108,4 +109,4 @@ def main(*args, **kwargs):
         pass
     finally:
         ping_recorder.stop()
-    ping_recorder.print_stats()
+    print(ping_recorder.report_stats())
