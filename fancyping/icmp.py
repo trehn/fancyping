@@ -47,6 +47,8 @@ class PingRecorder:
     def is_alive(self, loss_tolerance=1):
         i = 0
         with self._lock:
+            if not self._results:
+                return None
             while i < loss_tolerance:
                 try:
                     result = self._results[i]

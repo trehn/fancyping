@@ -38,10 +38,10 @@ def build_parser():
     )
     parser.add_argument(
         "-A",
-        "--no-down-anim",
-        action='store_false',
+        "--down-anim",
+        action='store_true',
         dest='anim_down',
-        help="disable animation while TARGET is down",
+        help="enable animation while TARGET is down",
     )
     parser.add_argument(
         "-c",
@@ -60,10 +60,10 @@ def build_parser():
     )
     parser.add_argument(
         "-F",
-        "--color-down",
-        action='store_true',
+        "--no-color-down",
+        action='store_false',
         dest='color_down',
-        help="fullscreen color while TARGET is down",
+        help="disable fullscreen color while TARGET is down",
     )
     parser.add_argument(
         "-i",

@@ -1,6 +1,8 @@
+from copy import copy
 import curses
 from datetime import datetime
 from time import sleep
+from types import SimpleNamespace
 
 COLOR_FULL_BLACK = 1
 COLOR_FULL_RED = 2
@@ -9,6 +11,18 @@ COLOR_FULL_GREEN = 4
 COLOR_DEFAULT = 5
 COLOR_RED = 6
 COLOR_GREEN = 7
+
+INITIAL_STATE = SimpleNamespace(
+    alive=None,
+    stats_interval_index=2,
+    lines=[],
+    max_line_length=0,
+    screen_size=(0, 0),
+    box_height=0,
+    box_width=0,
+    box_origin_y=0,
+    box_origin_x=0,
+)
 
 
 def init_colors():
@@ -39,35 +53,48 @@ def time_since(prior_time):
     return result
 
 
-def draw_text(win, y, x, lines, max_line_length, alive):
-    text_color = COLOR_GREEN if alive else COLOR_RED
-    for i, line in enumerate(lines):
-        win.addstr(y + 2 + i, x + 4, line.center(max_line_length), curses.color_pair(text_color))
+def draw_text(win, state):
+    text_color = COLOR_GREEN if state.alive else COLOR_RED
+    for i, line in enumerate(state.lines):
+        win.addstr(
+            state.box_origin_y + 2 + i, state.box_origin_x + 4,
+            line.center(state.max_line_length),
+            curses.color_pair(text_color),
+        )
 
 
-def draw_full_color(win, y, x, box_height, box_width, alive):
-    color = COLOR_FULL_GREEN if alive else COLOR_FULL_RED
+def draw_full_color(win, state):
+    if state.alive is None:
+        return
+    color = COLOR_FULL_GREEN if state.alive else COLOR_FULL_RED
+    y, x = state.box_origin_y, state.box_origin_x
     full_height, full_width = win.getmaxyx()
     for i in range(full_height - 1):
         for j in range(full_width - 1):
             if not (
-                i >= y - 1 and i <= y + box_height and
-                j >= x - 2 and j <= x + box_width + 1
+                i >= y - 1 and i <= y + state.box_height and
+                j >= x - 2 and j <= x + state.box_width + 1
             ):
                 win.addstr(i, j, " ", curses.color_pair(color))
 
 
-def tick_center_box(win, y, x, box_height, box_width, alive, anim):
-    color = COLOR_FULL_GREEN if alive else COLOR_FULL_RED
-    number_of_ticks = box_width * 2 + (box_height - 2) * 2
-    tick_values = list(ticks(y, x, box_height, box_width))
+def tick_box(win, state, anim):
+    color = COLOR_FULL_GREEN if state.alive else COLOR_FULL_RED
+    number_of_ticks = state.box_width * 2 + (state.box_height - 2) * 2
+    tick_values = list(ticks(
+        state.box_origin_y,
+        state.box_origin_x,
+        state.box_height,
+        state.box_width,
+    ))
     while True:
         for draw_index in range(number_of_ticks):
             delete_index = (draw_index + int(number_of_ticks / 2)) % number_of_ticks
-            win.addstr(
-                *tick_values[draw_index],
-                curses.color_pair(color),
-            )
+            if state.alive is not None:
+                win.addstr(
+                    *tick_values[draw_index],
+                    curses.color_pair(color),
+                )
             win.addstr(
                 *tick_values[delete_index],
                 curses.color_pair(COLOR_FULL_BLACK if anim else color),
@@ -90,15 +117,60 @@ def run_ui(ping_recorder, options):
     curses.wrapper(main, ping_recorder, options)
 
 
+def box_text(ping_recorder, state):
+    if state.alive:
+        last_rtt = ping_recorder.last_rtt
+        if last_rtt is None:
+            rtt_text = ping_recorder.error or ""
+        else:
+            rtt_text = f"RTT {last_rtt:9.2f}ms"
+    else:
+        rtt_text = ping_recorder.error or ""
+    stats_interval, stats_interval_desc = \
+        ping_recorder.STATS_INTERVALS[state.stats_interval_index]
+    lines = [
+        ping_recorder.target,
+        "",
+        rtt_text,
+        "",
+        f"- {stats_interval_desc} +",
+    ]
+    rtt_stats = ping_recorder.rtt_stats(stats_interval)
+    if rtt_stats:
+        lines.extend([
+            f"AVG {rtt_stats[0]:9.2f}ms",
+            f"MED {rtt_stats[1]:9.2f}ms",
+            f"MIN {rtt_stats[2]:9.2f}ms",
+            f"MAX {rtt_stats[3]:9.2f}ms",
+        ])
+    lines.append(f"P/L {ping_recorder.packet_loss(stats_interval) * 100:10.1f}%")
+
+    if state.alive and ping_recorder.last_pl:
+        lines.extend([
+            "",
+            "LAST P/L",
+            time_since(ping_recorder.last_pl),
+        ])
+    elif not state.alive and ping_recorder.last_resp:
+        lines.extend([
+            "",
+            "LAST UP",
+            time_since(ping_recorder.last_resp),
+        ])
+    return lines
+
+
 def main(stdscr, ping_recorder, options):
     stdscr.clear()
     stdscr.nodelay(True)
     init_colors()
 
-    previous_state = None
-    stats_interval_index = 2
+    previous_state = copy(INITIAL_STATE)
+    ticker = None
 
     while not ping_recorder.stopped.is_set():
+        state = copy(previous_state)
+        state.screen_size = stdscr.getmaxyx()
         try:
             key = stdscr.getkey()
         except curses.error:
@@ -110,89 +182,55 @@ def main(stdscr, ping_recorder, options):
                 ping_recorder.report_write_full()
             elif key in ("x", "X"):
                 ping_recorder.reset()
-                previous_state = None
-            elif key == "+" and stats_interval_index < len(ping_recorder.STATS_INTERVALS) - 1:
-                stats_interval_index += 1
-                previous_state = None
-            elif key == "-" and stats_interval_index > 0:
-                stats_interval_index -= 1
-                previous_state = None
+                previous_state = copy(INITIAL_STATE)
+                continue
+            elif key == "+" and state.stats_interval_index < len(ping_recorder.STATS_INTERVALS) - 1:
+                state.stats_interval_index += 1
+            elif key == "-" and state.stats_interval_index > 0:
+                state.stats_interval_index -= 1
 
-        if ping_recorder.updated.is_set() or previous_state is None:
+        if ping_recorder.updated.is_set():
             ping_recorder.updated.clear()
-            alive = ping_recorder.is_alive(options.loss_tolerance)
-            if alive:
-                last_rtt = ping_recorder.last_rtt
-                if last_rtt is None:
-                    rtt_text = ping_recorder.error or ""
-                else:
-                    rtt_text = f"RTT {last_rtt:9.2f}ms"
-                if options.quit_up:
-                    break
-            else:
-                rtt_text = ping_recorder.error or ""
-                if options.quit_down and previous_state is not None:
-                    break
-            stats_interval, stats_interval_desc = \
-                ping_recorder.STATS_INTERVALS[stats_interval_index]
-            lines = [
-                ping_recorder.target,
-                "",
-                rtt_text,
-                "",
-                f"- {stats_interval_desc} +",
-            ]
-            rtt_stats = ping_recorder.rtt_stats(stats_interval)
-            if rtt_stats:
-                lines.extend([
-                    f"AVG {rtt_stats[0]:9.2f}ms",
-                    f"MED {rtt_stats[1]:9.2f}ms",
-                    f"MIN {rtt_stats[2]:9.2f}ms",
-                    f"MAX {rtt_stats[3]:9.2f}ms",
-                ])
-            lines.append(f"P/L {ping_recorder.packet_loss(stats_interval) * 100:10.1f}%")
+            state.alive = ping_recorder.is_alive(options.loss_tolerance)
+            state.lines = box_text(ping_recorder, state)
+            state.max_line_length = max([len(line) for line in state.lines])
 
-            if alive and ping_recorder.last_pl:
-                lines.extend([
-                    "",
-                    "LAST P/L",
-                    time_since(ping_recorder.last_pl),
-                ])
-            elif not alive and ping_recorder.last_resp:
-                lines.extend([
-                    "",
-                    "LAST UP",
-                    time_since(ping_recorder.last_resp),
-                ])
+        if state.alive != previous_state.alive:
+            if previous_state.alive is not None:
+                curses.beep()
+            if state.alive is True and options.quit_up:
+                break
+            elif state.alive is False and options.quit_down:
+                break
 
-            max_line_length = max([len(line) for line in lines])
-            redraw_text = True
-        else:
-            redraw_text = False
-
-        state = (
-            alive,
-            len(lines),
-            max_line_length,
-            stdscr.getmaxyx(),
-        )
-
-        if state != previous_state:
-            previous_state = state
+        if (
+            len(state.lines) != len(previous_state.lines) or
+            state.max_line_length != previous_state.max_line_length or
+            state.alive != previous_state.alive
+        ):
             stdscr.clear()
-            box_height = len(lines) + 4
-            box_width = max_line_length + 8
-            max_y, max_x = stdscr.getmaxyx()
-            y = int((max_y - box_height) / 2) - 1
-            x = int((max_x - box_width) / 2) - 1
-            anim = (alive and options.anim_up) or (not alive and options.anim_down)
-            if (alive and options.color_up) or (not alive and options.color_down):
-                draw_full_color(stdscr, y, x, box_height, box_width, alive)
-            ticker = tick_center_box(stdscr, y, x, box_height, box_width, alive, anim)
+            state.box_height = len(state.lines) + 4
+            state.box_width = state.max_line_length + 8
+            max_y, max_x = state.screen_size
+            state.box_origin_y = int((max_y - state.box_height) / 2) - 1
+            state.box_origin_x = int((max_x - state.box_width) / 2) - 1
 
-        if redraw_text:
-            draw_text(stdscr, y, x, lines, max_line_length, alive)
+            anim = (state.alive and options.anim_up) or (not state.alive and options.anim_down)
+            ticker = None if state.alive is None else tick_box(stdscr, state, anim)
 
-        number_of_ticks = next(ticker)
+            if (
+                (state.alive is True and options.color_up) or
+                (state.alive is False and options.color_down)
+            ):
+                draw_full_color(stdscr, state)
+
+        if state.lines != previous_state.lines:
+            draw_text(stdscr, state)
+
+        if ticker:
+            sleep_amount = 1 / next(ticker)
+        else:
+            sleep_amount = 0.1
         stdscr.refresh()
-        sleep(1 / number_of_ticks)
+        previous_state = copy(state)
+        sleep(sleep_amount)
