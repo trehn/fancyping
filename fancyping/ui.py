@@ -120,15 +120,17 @@ def main(stdscr, ping_recorder, options):
 
         if ping_recorder.updated.is_set() or previous_state is None:
             ping_recorder.updated.clear()
-            last_rtt = ping_recorder.last_rtt
-            if last_rtt:
-                rtt_text = f"RTT {last_rtt:9.2f}ms"
-                alive = True
+            alive = ping_recorder.is_alive(options.loss_tolerance)
+            if alive:
+                last_rtt = ping_recorder.last_rtt
+                if last_rtt is None:
+                    rtt_text = ping_recorder.error or ""
+                else:
+                    rtt_text = f"RTT {last_rtt:9.2f}ms"
                 if options.quit_up:
                     break
             else:
                 rtt_text = ping_recorder.error or ""
-                alive = False
                 if options.quit_down and previous_state is not None:
                     break
             stats_interval, stats_interval_desc = \
@@ -150,17 +152,17 @@ def main(stdscr, ping_recorder, options):
                 ])
             lines.append(f"P/L {ping_recorder.packet_loss(stats_interval) * 100:10.1f}%")
 
-            if alive and ping_recorder.last_down:
+            if alive and ping_recorder.last_pl:
                 lines.extend([
                     "",
                     "LAST P/L",
-                    time_since(ping_recorder.last_down),
+                    time_since(ping_recorder.last_pl),
                 ])
-            elif not alive and ping_recorder.last_alive:
+            elif not alive and ping_recorder.last_resp:
                 lines.extend([
                     "",
                     "LAST UP",
-                    time_since(ping_recorder.last_alive),
+                    time_since(ping_recorder.last_resp),
                 ])
 
             max_line_length = max([len(line) for line in lines])

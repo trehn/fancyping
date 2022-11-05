@@ -74,6 +74,14 @@ def build_parser():
         type=float,
     )
     parser.add_argument(
+        "-l",
+        "--loss-tolerance",
+        default=1,
+        dest='loss_tolerance',
+        help="number of consecutive timeouts until TARGET is considered down (defaults to 1)",
+        type=int,
+    )
+    parser.add_argument(
         "-q",
         "--quit-up",
         action='store_true',

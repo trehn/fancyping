@@ -44,6 +44,21 @@ class PingRecorder:
 
         self.reset()
 
+    def is_alive(self, loss_tolerance=1):
+        i = 0
+        with self._lock:
+            while i < loss_tolerance:
+                try:
+                    result = self._results[i]
+                except IndexError:
+                    continue
+                else:
+                    if result is not None:
+                        return True
+                finally:
+                    i += 1
+        return False
+
     @property
     def last_rtt(self):
         try:
@@ -56,8 +71,8 @@ class PingRecorder:
             self._datetimes = []
             self._results = []
             self.error = None
-            self.last_alive = None
-            self.last_down = None
+            self.last_resp = None
+            self.last_pl = None
         self.updated.set()
 
     def stop(self):
@@ -82,7 +97,7 @@ class PingRecorder:
         except Exception as exc:
             with self._lock:
                 self.error = str(exc)
-                self.last_down = datetime.utcnow()
+                self.last_pl = datetime.utcnow()
         else:
             now = datetime.utcnow()
             with self._lock:
@@ -90,12 +105,12 @@ class PingRecorder:
                     self._datetimes.insert(0, now)
                     self._results.insert(0, result.rtts[0])
                     self.error = None
-                    self.last_alive = now
+                    self.last_resp = now
                 else:
                     self._datetimes.insert(0, now)
                     self._results.insert(0, None)
-                    self.error = "CONTACT LOST"
-                    self.last_down = now
+                    self.error = "TIMEOUT"
+                    self.last_pl = now
                 if len(self._results) > self.history:
                     self._datetimes.pop()
                     self._results.pop()
