@@ -66,6 +66,22 @@ def build_parser():
         help="disable fullscreen color while TARGET is down",
     )
     parser.add_argument(
+        "-g",
+        "--histogram-upper",
+        default=300.0,
+        dest='histogram_upper',
+        help="upper end of histogram scale in ms (defaults to 300)",
+        type=float,
+    )
+    parser.add_argument(
+        "-G",
+        "--histogram-lines",
+        default=3,
+        dest='histogram_lines',
+        help="number of lines for the histogram at the bottom (defaults to 3)",
+        type=int,
+    )
+    parser.add_argument(
         "-i",
         "--interval",
         default=1.0,

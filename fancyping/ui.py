@@ -1,4 +1,4 @@
-from copy import copy
+from copy import deepcopy
 import curses
 from datetime import datetime
 from time import sleep
@@ -12,16 +12,29 @@ COLOR_DEFAULT = 5
 COLOR_RED = 6
 COLOR_GREEN = 7
 
+HISTOGRAM_CHARS = [
+    "▁",
+    "▂",
+    "▃",
+    "▄",
+    "▅",
+    "▆",
+    "▇",
+    "█",
+]
+
 INITIAL_STATE = SimpleNamespace(
     alive=None,
-    stats_interval_index=2,
+    box_height=0,
+    box_origin_x=0,
+    box_origin_y=0,
+    box_width=0,
+    histogram_columns=[],
+    histogram_y=[],
     lines=[],
     max_line_length=0,
     screen_size=(0, 0),
-    box_height=0,
-    box_width=0,
-    box_origin_y=0,
-    box_origin_x=0,
+    stats_interval_index=2,
 )
 
 
@@ -71,10 +84,12 @@ def draw_full_color(win, state):
     full_height, full_width = win.getmaxyx()
     for i in range(full_height - 1):
         for j in range(full_width - 1):
+            if state.histogram_y and i == min(state.histogram_y) - 1:
+                continue
             if not (
                 i >= y - 1 and i <= y + state.box_height and
                 j >= x - 2 and j <= x + state.box_width + 1
-            ):
+            ) and i not in state.histogram_y:
                 win.addstr(i, j, " ", curses.color_pair(color))
 
 
@@ -160,16 +175,56 @@ def box_text(ping_recorder, state):
     return lines
 
 
+def draw_histogram(win, state):
+    for i, column in enumerate(state.histogram_columns):
+        if i >= state.screen_size[1] - 2:
+            return
+        if column is None:
+            for y in state.histogram_y:
+                win.addstr(
+                    y, state.screen_size[1] - 2 - i,
+                    " ",
+                    curses.color_pair(COLOR_FULL_RED),
+                )
+        else:
+            for y, char in zip(state.histogram_y, column[1:]):
+                win.addstr(
+                    y, state.screen_size[1] - 2 - i,
+                    char,
+                    curses.color_pair(COLOR_GREEN),
+                )
+
+
+def histogram_column(rtt, number_of_lines, upper):
+    if rtt is None:
+        return None
+    value = min(rtt, upper) / upper
+    line_value = 1 / number_of_lines
+    result = [rtt]
+    for i in range(number_of_lines):
+        if value is None:
+            result.append(" ")
+        elif value > line_value:
+            result.append(HISTOGRAM_CHARS[-1])
+            value -= line_value
+        else:
+            result.append(HISTOGRAM_CHARS[
+                int(round((value / line_value) * len(HISTOGRAM_CHARS))) - 1
+            ])
+            value = None
+    return result
+
+
 def main(stdscr, ping_recorder, options):
     stdscr.clear()
     stdscr.nodelay(True)
     init_colors()
 
-    previous_state = copy(INITIAL_STATE)
+    previous_state = deepcopy(INITIAL_STATE)
     ticker = None
 
     while not ping_recorder.stopped.is_set():
-        state = copy(previous_state)
+        state = deepcopy(previous_state)
         state.screen_size = stdscr.getmaxyx()
         try:
             key = stdscr.getkey()
@@ -182,7 +237,7 @@ def main(stdscr, ping_recorder, options):
                 ping_recorder.report_write_full()
             elif key in ("x", "X"):
                 ping_recorder.reset()
-                previous_state = copy(INITIAL_STATE)
+                previous_state = deepcopy(INITIAL_STATE)
                 continue
             elif key == "+" and state.stats_interval_index < len(ping_recorder.STATS_INTERVALS) - 1:
                 state.stats_interval_index += 1
@@ -194,6 +249,17 @@ def main(stdscr, ping_recorder, options):
             state.alive = ping_recorder.is_alive(options.loss_tolerance)
             state.lines = box_text(ping_recorder, state)
             state.max_line_length = max([len(line) for line in state.lines])
+            if options.histogram_lines > 0 and state.alive is not None:
+                state.histogram_columns.insert(
+                    0,
+                    histogram_column(
+                        ping_recorder.last_rtt,
+                        options.histogram_lines,
+                        options.histogram_upper,
+                    ),
+                )
+                if len(state.histogram_columns) > state.screen_size[1]:
+                    state.histogram_columns.pop()
 
         if state.alive != previous_state.alive:
             if previous_state.alive is not None:
@@ -206,14 +272,17 @@ def main(stdscr, ping_recorder, options):
         if (
             len(state.lines) != len(previous_state.lines) or
             state.max_line_length != previous_state.max_line_length or
-            state.alive != previous_state.alive
+            state.alive != previous_state.alive or
+            state.screen_size != previous_state.screen_size
         ):
             stdscr.clear()
             state.box_height = len(state.lines) + 4
             state.box_width = state.max_line_length + 8
             max_y, max_x = state.screen_size
-            state.box_origin_y = int((max_y - state.box_height) / 2) - 1
-            state.box_origin_x = int((max_x - state.box_width) / 2) - 1
+            histogram_lines = min(options.histogram_lines, max_y - state.box_height - 1)
+            state.box_origin_y = int((max_y - histogram_lines - state.box_height) / 2)
+            state.box_origin_x = int((max_x - state.box_width) / 2)
+            state.histogram_y = list(range(max_y - 1, max_y - 1 - histogram_lines, -1))
 
             anim = (state.alive and options.anim_up) or (not state.alive and options.anim_down)
             ticker = None if state.alive is None else tick_box(stdscr, state, anim)
@@ -227,10 +296,13 @@ def main(stdscr, ping_recorder, options):
         if state.lines != previous_state.lines:
             draw_text(stdscr, state)
 
+        if state.histogram_columns != previous_state.histogram_columns:
+            draw_histogram(stdscr, state)
+
         if ticker:
             sleep_amount = 1 / next(ticker)
         else:
             sleep_amount = 0.1
         stdscr.refresh()
-        previous_state = copy(state)
+        previous_state = deepcopy(state)
         sleep(sleep_amount)
