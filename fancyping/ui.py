@@ -11,6 +11,7 @@ COLOR_FULL_GREEN = 4
 COLOR_DEFAULT = 5
 COLOR_RED = 6
 COLOR_GREEN = 7
+COLOR_BLACK = 8
 
 HISTOGRAM_CHARS = [
     "▁",
@@ -47,6 +48,7 @@ def init_colors():
     curses.init_pair(COLOR_DEFAULT, -1, -1)
     curses.init_pair(COLOR_RED, curses.COLOR_RED, -1)
     curses.init_pair(COLOR_GREEN, curses.COLOR_GREEN, -1)
+    curses.init_pair(COLOR_BLACK, curses.COLOR_BLACK, -1)
     try:
         curses.curs_set(False)
     except curses.error:
@@ -94,8 +96,8 @@ def draw_full_color(win, state):
 
 
 def tick_box(win, state, anim):
-    color = COLOR_FULL_GREEN if state.alive else COLOR_FULL_RED
-    number_of_ticks = state.box_width * 2 + (state.box_height - 2) * 2
+    color = COLOR_GREEN if state.alive else COLOR_RED
+    number_of_ticks = state.box_width * 2 + (state.box_height - 2) * 2 - 4
     tick_values = list(ticks(
         state.box_origin_y,
         state.box_origin_x,
@@ -112,20 +114,20 @@ def tick_box(win, state, anim):
                 )
             win.addstr(
                 *tick_values[delete_index],
-                curses.color_pair(COLOR_FULL_BLACK if anim else color),
+                curses.color_pair(COLOR_BLACK if anim else color),
             )
             yield number_of_ticks
 
 
 def ticks(y, x, box_height, box_width):
-    for i in range(0, box_width):
-        yield y, x + i, " "
+    for i in range(1, box_width - 1):
+        yield y, x + i, "▄"
     for i in range(0, box_height - 2):
-        yield y + 1 + i, x + box_width - 2, "  "
-    for i in range(0, box_width):
-        yield y + box_height - 1, x + box_width - 1 - i, " "
+        yield y + 1 + i, x + box_width - 2, "█"
+    for i in range(1, box_width - 1):
+        yield y + box_height - 1, x + box_width - 1 - i, "▀"
     for i in range(0, box_height - 2):
-        yield y + box_height - 2 - i, x, "  "
+        yield y + box_height - 2 - i, x + 1, "█"
 
 
 def run_ui(ping_recorder, options):
