@@ -112,6 +112,14 @@ def build_parser():
         help="quit when TARGET is down",
     )
     parser.add_argument(
+        "-s",
+        "--size",
+        default=56,
+        dest='payload_size',
+        help="payload size in bytes (defaults to 56)",
+        type=int,
+    )
+    parser.add_argument(
         "-t",
         "--timeout",
         default=2.0,
@@ -138,6 +146,7 @@ def main(*args, **kwargs):
         pargs.target,
         count=pargs.count,
         interval=pargs.interval,
+        payload_size=pargs.payload_size,
         timeout=pargs.timeout,
     )
     ping_recorder.start()

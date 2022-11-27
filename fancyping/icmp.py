@@ -31,10 +31,19 @@ class PingRecorder:
         (60 * 60 * 24, "24h"),
     ]
 
-    def __init__(self, target, count=0, interval=1.0, timeout=2.0, history=60 * 60 * 24):
+    def __init__(
+        self,
+        target,
+        count=0,
+        interval=1.0,
+        payload_size=56,
+        timeout=2.0,
+        history=60 * 60 * 24,
+    ):
         self.target = target
         self.count = count
         self.interval = interval
+        self.payload_size = payload_size
         self.timeout = timeout
         self.history = history
 
@@ -95,7 +104,13 @@ class PingRecorder:
 
     def _ping(self):
         try:
-            result = ping(self.target, count=1, timeout=self.timeout, privileged=False)
+            result = ping(
+                self.target,
+                count=1,
+                timeout=self.timeout,
+                privileged=False,
+                payload_size=self.payload_size,
+            )
         except Exception as exc:
             with self._lock:
                 self.error = str(exc)
@@ -180,6 +195,7 @@ class PingRecorder:
             f.write(f"TARGET: {self.target}\n")
             f.write(f"UNTIL:  {reptime.strftime('%Y-%m-%dT%H:%M:%SZ')}\n\n")
             f.write(f"FROM:   {self.time_started.strftime('%Y-%m-%dT%H:%M:%SZ')}\n")
+            f.write(f"SIZE:   {self.payload_size} B\n")
             f.write(self.report_stats() + "\n\n")
             for rtt, time in zip(self._results.copy(), self._datetimes.copy()):
                 if rtt is None:
