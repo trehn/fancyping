@@ -146,6 +146,8 @@ class PingRecorder:
             "P/L".rjust(7)
         ]
         for timeframe, label in self.STATS_INTERVALS:
+            if len(self._results) < int(timeframe / self.interval):
+                break
             pl = self.packet_loss(timeframe)
             stats = self.rtt_stats(timeframe)
             if stats:
@@ -166,8 +168,6 @@ class PingRecorder:
                     f"{' ':<9}"
                     f"{pl * 100:6.1f}%"
                 )
-            if len(self._results) < int(timeframe / self.interval):
-                break
         return "\n".join(lines)
 
     def report_write_full(self):
