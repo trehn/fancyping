@@ -49,6 +49,7 @@ def build_parser():
         default=0,
         dest='count',
         help="quit after this many pings",
+        metavar="INT",
         type=int,
     )
     parser.add_argument(
@@ -71,6 +72,7 @@ def build_parser():
         default=300.0,
         dest='histogram_upper',
         help="upper end of histogram scale in ms (defaults to 300)",
+        metavar="FLOAT",
         type=float,
     )
     parser.add_argument(
@@ -79,6 +81,7 @@ def build_parser():
         default=3,
         dest='histogram_lines',
         help="number of lines for the histogram at the bottom (defaults to 3)",
+        metavar="INT",
         type=int,
     )
     parser.add_argument(
@@ -87,6 +90,7 @@ def build_parser():
         default=1.0,
         dest='interval',
         help="number of seconds between each ping (defaults to 1)",
+        metavar="FLOAT",
         type=float,
     )
     parser.add_argument(
@@ -95,6 +99,7 @@ def build_parser():
         default=1,
         dest='loss_tolerance',
         help="number of consecutive timeouts until TARGET is considered down (defaults to 1)",
+        metavar="INT",
         type=int,
     )
     parser.add_argument(
@@ -117,6 +122,7 @@ def build_parser():
         default=56,
         dest='payload_size',
         help="payload size in bytes (defaults to 56)",
+        metavar="INT",
         type=int,
     )
     parser.add_argument(
@@ -125,6 +131,7 @@ def build_parser():
         default=2.0,
         dest='timeout',
         help="number of seconds before a ping is considered lost (defaults to 2)",
+        metavar="FLOAT",
         type=float,
     )
     parser.add_argument(
