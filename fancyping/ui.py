@@ -220,6 +220,7 @@ def main(stdscr, ping_recorder, options):
     stdscr.nodelay(True)
     init_colors()
 
+    curses_error = False
     previous_state = deepcopy(INITIAL_STATE)
     ticker = None
 
@@ -269,40 +270,50 @@ def main(stdscr, ping_recorder, options):
             elif state.alive is False and options.quit_down:
                 break
 
-        if (
-            len(state.lines) != len(previous_state.lines) or
-            state.max_line_length != previous_state.max_line_length or
-            state.alive != previous_state.alive or
-            state.screen_size != previous_state.screen_size
-        ):
-            stdscr.clear()
-            state.box_height = len(state.lines) + 4
-            state.box_width = state.max_line_length + 8
-            max_y, max_x = state.screen_size
-            histogram_lines = min(options.histogram_lines, max_y - state.box_height - 1)
-            state.box_origin_y = int((max_y - histogram_lines - state.box_height) / 2)
-            state.box_origin_x = int((max_x - state.box_width) / 2)
-            state.histogram_y = list(range(max_y - 1, max_y - 1 - histogram_lines, -1))
-
-            anim = (state.alive and options.anim_up) or (not state.alive and options.anim_down)
-            ticker = None if state.alive is None else tick_box(stdscr, state, anim)
-
+        try:
             if (
-                (state.alive is True and options.color_up) or
-                (state.alive is False and options.color_down)
+                len(state.lines) != len(previous_state.lines) or
+                state.max_line_length != previous_state.max_line_length or
+                state.alive != previous_state.alive or
+                state.screen_size != previous_state.screen_size
             ):
-                draw_full_color(stdscr, state)
+                stdscr.clear()
+                state.box_height = len(state.lines) + 4
+                state.box_width = state.max_line_length + 8
+                max_y, max_x = state.screen_size
+                histogram_lines = min(options.histogram_lines, max_y - state.box_height - 1)
+                state.box_origin_y = int((max_y - histogram_lines - state.box_height) / 2)
+                state.box_origin_x = int((max_x - state.box_width) / 2)
+                state.histogram_y = list(range(max_y - 1, max_y - 1 - histogram_lines, -1))
 
-        if state.lines != previous_state.lines:
-            draw_text(stdscr, state)
+                anim = (state.alive and options.anim_up) or (not state.alive and options.anim_down)
+                ticker = None if state.alive is None else tick_box(stdscr, state, anim)
 
-        if state.histogram_columns != previous_state.histogram_columns:
-            draw_histogram(stdscr, state)
+                if (
+                    (state.alive is True and options.color_up) or
+                    (state.alive is False and options.color_down)
+                ):
+                    draw_full_color(stdscr, state)
 
-        if ticker:
-            sleep_amount = options.interval / next(ticker)
+            if state.lines != previous_state.lines:
+                draw_text(stdscr, state)
+
+            if state.histogram_columns != previous_state.histogram_columns:
+                draw_histogram(stdscr, state)
+
+            if ticker:
+                sleep_amount = options.interval / next(ticker)
+            else:
+                sleep_amount = 0.1
+            stdscr.refresh()
+        except curses.error:
+            # stuff may have failed because of intermittent window
+            # resize, try again once on next iteration
+            if curses_error:
+                raise
+            else:
+                curses_error = True
         else:
-            sleep_amount = 0.1
-        stdscr.refresh()
+            curses_error = False
         previous_state = deepcopy(state)
         sleep(max(sleep_amount, 0.01666))  # cap at 1/60
