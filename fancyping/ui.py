@@ -209,7 +209,7 @@ def histogram_column(rtt, number_of_lines, upper):
             value -= line_value
         else:
             result.append(HISTOGRAM_CHARS[
-                int(round((value / line_value) * len(HISTOGRAM_CHARS))) - 1
+                int(round((value / line_value) * (len(HISTOGRAM_CHARS) - 1)))
             ])
             value = None
     return result
@@ -300,9 +300,9 @@ def main(stdscr, ping_recorder, options):
             draw_histogram(stdscr, state)
 
         if ticker:
-            sleep_amount = 1 / next(ticker)
+            sleep_amount = options.interval / next(ticker)
         else:
             sleep_amount = 0.1
         stdscr.refresh()
         previous_state = deepcopy(state)
-        sleep(sleep_amount)
+        sleep(max(sleep_amount, 1 / 60))
