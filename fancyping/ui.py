@@ -183,8 +183,8 @@ def draw_histogram(win, state):
             for y in state.histogram_y:
                 win.addstr(
                     y, state.screen_size[1] - 2 - i,
-                    " ",
-                    curses.color_pair(COLOR_FULL_RED),
+                    "╳",
+                    curses.color_pair(COLOR_RED),
                 )
         else:
             for y, char in zip(state.histogram_y, column[1:]):
