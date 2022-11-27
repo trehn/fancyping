@@ -305,4 +305,4 @@ def main(stdscr, ping_recorder, options):
             sleep_amount = 0.1
         stdscr.refresh()
         previous_state = deepcopy(state)
-        sleep(max(sleep_amount, 1 / 60))
+        sleep(max(sleep_amount, 0.01666))  # cap at 1/60
